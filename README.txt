@@ -1,9 +1,12 @@
-# Stripe for WooCommerce
-Plugin version: 1.0
+=== Stripe for WooCommerce ===
+Contributors: Stephen Zuniga
+Requires at least: 3.8.0
+Tested up to: 3.9.1
+Stable tag: trunk
+Tags: WooCommerce, Stripe, Payment Gateway, Credit Card
+License: GPLv3
 
-Requires at least:
-- WordPress 3.8.0
-- WooCommerce 2.1.0
+== Description ==
 
 ## What is Stripe?
 [Stripe](https://stripe.com/) allows you to take credit card payments on your site without having sensitive credit card information hit your servers. This works by having your customers input their credit card information on your web page which is then sent to Stripe's servers via JavaScript and a unique "token" is created which you can then use to charge your customers one time. This process keeps you from having to be [PCI compliant](https://www.pcisecuritystandards.org/), and allows you to quickly process credit card payments that makes your store look more legitimate than one that only supports PayPal.
