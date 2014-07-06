@@ -1,14 +1,14 @@
 <?php
-
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-
 /**
  * Functions for interfacing with Stripe's API
  *
  * @class 		WC_Stripe
- * @version		1.0
+ * @version		1.1
  * @author 		Stephen Zuniga
  */
+
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
 class WC_Stripe {
 
 	/**
