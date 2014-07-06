@@ -3,15 +3,17 @@
  * Plugin Name: Stripe for WooCommerce
  * Plugin URI: https://github.com/stezu/woocommerce-stripe/
  * Description: Use Stripe for collecting credit card payments on WooCommerce.
- * Version: 1.0
+ * Version: 1.1
  * Author: Stephen Zuniga
- * Author URI: https://github.com/stezu* 
+ * Author URI: https://github.com/stezu
  *
  * License: GNU General Public License v3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
  *
  * Foundation built by: Sean Voss // https://github.com/seanvoss/striper
  */
+
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class WooCommerce_Stripe {
 
@@ -62,52 +64,7 @@ class WooCommerce_Stripe {
 	 * @return void
 	 */
 	public function account_saved_cards() {
-		global $wc_stripe;
-
-		// If the current user is not a stripe customer, return
-		if ( ! get_user_meta( get_current_user_id(), $wc_stripe->settings['stripe_db_location'], true ) )
-			return;
-
-		// If user requested to delete a card, delete it
-		if ( isset( $_POST['delete_card'] ) && wp_verify_nonce( $_POST['_wpnonce'], "stripe_del_card" ) ) {
-			WC_Stripe::delete_card( get_current_user_id(), $_POST['delete_card'] );
-		}
-
-		// Get user database object
-		$user_meta = get_user_meta( get_current_user_id(), $wc_stripe->settings['stripe_db_location'], true );
-
-		// Get user credit cards
-		$credit_cards = isset( $user_meta['cards'] ) ? $user_meta['cards'] : false;
-
-		if ( $credit_cards ) :
-		?>
-			<h2 id="saved-cards">Saved cards</h2>
-			<table class="shop_table">
-				<thead>
-					<tr>
-						<th>Card ending in...</th>
-						<th>Expires</th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $credit_cards as $i => $credit_card ) : ?>
-					<tr>
-						<td><?php echo esc_html( $credit_card['last4'] ); ?></td>
-						<td><?php echo esc_html( $credit_card['exp_month'] ) . '/' . esc_html( $credit_card['exp_year'] ); ?></td>
-						<td>
-							<form action="#saved-cards" method="POST">
-								<?php wp_nonce_field ( 'stripe_del_card' ); ?>
-								<input type="hidden" name="delete_card" value="<?php echo esc_attr( $i ); ?>">
-								<input type="submit" value="Delete card">
-							</form>
-						</td>
-					</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		<?php
-		endif;
+		wc_stripe_get_template( 'saved-cards.php' );
 	}
 }
 
@@ -152,7 +109,7 @@ add_action( 'woocommerce_order_status_processing_to_completed', 'wc_stripe_order
  * @access public
  * @return void
  */
-function validation_errors() {
+function wc_stripe_validation_errors() {
 
 	foreach( $_POST['errors'] as $error ) {
 		$message = '';
@@ -204,5 +161,15 @@ function validation_errors() {
 	}
 	die();
 }
-add_action( 'wp_ajax_stripe_form_validation', 'validation_errors' );
-add_action( 'wp_ajax_nopriv_stripe_form_validation', 'validation_errors' );
+add_action( 'wp_ajax_stripe_form_validation', 'wc_stripe_validation_errors' );
+add_action( 'wp_ajax_nopriv_stripe_form_validation', 'wc_stripe_validation_errors' );
+
+/**
+ * Wrapper of wc_get_template to relate directly to woocommerce-stripe
+ *
+ * @param string $template_name
+ * @return string
+ */
+function wc_stripe_get_template( $template_name ) {
+	return wc_get_template( $template_name, array(), WC()->template_path() . '/woocommerce-stripe', plugin_dir_path( __FILE__ ) . '/templates/' );
+}
