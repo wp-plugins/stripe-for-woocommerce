@@ -3,7 +3,7 @@
  * Plugin Name: Stripe for WooCommerce
  * Plugin URI: https://wordpress.org/plugins/stripe-for-woocommerce
  * Description: Use Stripe for collecting credit card payments on WooCommerce.
- * Version: 1.1
+ * Version: 1.11
  * Author: Stephen Zuniga
  * Author URI: http://stephenzuniga.com
  *
@@ -22,8 +22,18 @@ class WooCommerce_Stripe {
 		// Include Stripe Methods
 		include_once( 'classes/class-wc_stripe.php' );
 
+		// Include Database Manipulation Methods
+		include_once( 'classes/class-wc_stripe_db.php' );
+
 		// Grab settings
 		$this->settings = get_option( 'woocommerce_wc_stripe' . '_settings', null );
+
+		// Add default values for fresh installs
+		$this->settings['testmode'] = isset( $this->settings['testmode'] ) ? $this->settings['testmode'] : 'yes';
+		$this->settings['test_publishable_key'] = isset( $this->settings['test_publishable_key'] ) ? $this->settings['test_publishable_key'] : '';
+		$this->settings['test_secret_key'] = isset( $this->settings['test_secret_key'] ) ? $this->settings['test_secret_key'] : '';
+		$this->settings['live_publishable_key'] = isset( $this->settings['live_publishable_key'] ) ? $this->settings['live_publishable_key'] : '';
+		$this->settings['live_secret_key'] = isset( $this->settings['live_secret_key'] ) ? $this->settings['live_secret_key'] : '';
 
 		// API Info
 		$this->settings['api_endpoint']				= 'https://api.stripe.com/';
