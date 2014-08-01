@@ -1,7 +1,4 @@
 <?php
-
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
-
 /**
  * Stripe Gateway
  *
@@ -9,10 +6,13 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  *
  * @class		WC_Stripe_Gateway
  * @extends		WC_Payment_Gateway
- * @version		1.0
+ * @version		1.11
  * @package		WooCommerce/Classes/Payment
  * @author		Stephen Zuniga
  */
+
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
 class WC_Stripe_Gateway extends WC_Payment_Gateway {
 	protected $GATEWAY_NAME				= 'wc_stripe';
 	protected $order					= null;
@@ -29,6 +29,7 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 		global $wc_stripe;
 
 		$this->id						= 'wc_stripe';
+		$this->icon						= plugins_url( 'assets/images/credits.png', dirname(__FILE__) );
 		$this->method_title				= 'WooCommerce Stripe';
 		$this->has_fields				= true;
 		$this->api_endpoint				= 'https://api.stripe.com/';
@@ -203,13 +204,38 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 	 * @return void
 	 */
 	public function admin_options() {
+		global $wpdb;
+
+		// If the user hit a button at the bottom of the page that caused an action
+		if ( ! empty( $_GET['action'] ) && ! empty( $_REQUEST['_wpnonce'] ) && wp_verify_nonce( $_REQUEST['_wpnonce'], 'wc_stripe_action' ) ) {
+
+			// Delete test data
+			if ( $_GET['action'] = 'delete_test_data' ) {
+				$wpdb->query( "
+					DELETE FROM {$wpdb->usermeta}
+					WHERE `meta_key` = '_stripe_test_customer_info'
+				" );
+
+				echo '<div class="updated"><p>' . __( 'Stripe Test Data successfully deleted.', 'wc_stripe' ) . '</p></div>';
+			}
+		}
 		?>
 		<h3>Stripe Payment</h3>
 		<p>Allows Credit Card payments through <a href="https://stripe.com/">Stripe</a>.</p>
 		<p>You can find your API Keys in your <a href="https://dashboard.stripe.com/account/apikeys">Stripe Account Settings</a>.</p>
 		<table class="form-table">
 			<?php $this->generate_settings_html(); ?>
+			<tr>
+				<th>Delete Stripe Test Data</th>
+				<td>
+					<p>
+						<a href="<?php echo wp_nonce_url( admin_url('admin.php?page=wc-settings&tab=checkout&section=wc_stripe_gateway&action=delete_test_data' ), 'wc_stripe_action' ); ?>" class="button">Delete all Test Data</a>
+						<span class="description"><strong class="red">Note:</strong> This will delete all Stripe test customer data, make sure to back up your database.</span>
+					</p>
+				</td>
+			</tr>
 		</table>
+
 		<?php
 	}
 
@@ -237,10 +263,11 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 		// Plugin css
 		wp_enqueue_style( 'wc_stripe_css', plugins_url( 'assets/css/wc_stripe.css', dirname( __FILE__ ) ), false, '1.0');
 
+		// Add data that wc_stripe.js needs
 		$wc_stripe_info = array(
 			'ajaxurl'			=> admin_url( 'admin-ajax.php' ),
 			'publishableKey'	=> $wc_stripe->settings['publishable_key'],
-			'hasCard'			=> count( $this->stripe_customer_info['cards'] ) ? true : false
+			'hasCard'			=> ( $this->stripe_customer_info && count( $this->stripe_customer_info['cards'] ) ) ? true : false
 		);
 
 		wp_localize_script( 'wc_stripe_js', 'wc_stripe_info', $wc_stripe_info );
@@ -253,102 +280,7 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 	 * @return void
 	 */
 	public function payment_fields() {
-		if( is_user_logged_in() && $this->stripe_customer_info && isset( $this->stripe_customer_info['cards'] ) && count( $this->stripe_customer_info['cards'] ) ) :
-
-			// Add option to use a saved card
-			foreach ( $this->stripe_customer_info['cards'] as $i => $credit_card ) : ?>
-
-				<input type="radio" id="stripe_card_<?php echo $i; ?>" name="wc_stripe_card" value="<?php echo $i; ?>" checked>
-				<label for="stripe_card_<?php echo $i; ?>">Card ending with <?php echo $credit_card['last4']; ?> (<?php echo $credit_card['exp_month']; ?>/<?php echo $credit_card['exp_year']; ?>)</label><br>
-
-			<?php endforeach; ?>
-
-			<input type="radio" id="new_card" name="wc_stripe_card" value="new">
-			<label for="new_card">Use a new credit card</label>
-
-		<?php endif; ?>
-
-		<div id="wc_stripe-creditcard-form">
-
-		<?php
-			if ( $this->additional_fields == 'yes' ) : 
-
-				$billing_name = woocommerce_form_field( 'billing-name', array(
-					'label'				=> 'Name on Card',
-					'required'			=> true,
-					'class'				=> array( 'form-row-first' ),
-					'input_class'		=> array( 'wc_stripe-billing-name' ),
-					'return'			=> true,
-					'custom_attributes'	=> array(
-						'autocomplete'	=> 'off'
-					)
-				) );
-				echo $billing_name;
-
-				$billing_zip = woocommerce_form_field( 'billing-zip', array(
-					'label'				=> 'Billing Zip',
-					'required'			=> true,
-					'class'				=> array( 'form-row-last' ),
-					'input_class'		=> array( 'wc_stripe-billing-zip' ),
-					'return'			=> true,
-					'clear'				=> true,
-					'custom_attributes'	=> array(
-						'autocomplete'	=> 'off'
-					)
-				) );
-				echo $billing_zip;
-
-			endif;
-
-			$cc_number = woocommerce_form_field( 'card-number', array(
-				'label'				=> 'Card Number',
-				'placeholder'		=> '•••• •••• •••• ••••',
-				'maxlength'			=> 20,
-				'required'			=> true,
-				'input_class'		=> array( 'wc_stripe-card-number' ),
-				'return'			=> true,
-				'custom_attributes'	=> array(
-					'autocomplete'	=> 'off',
-					'pattern'		=> '\d*'
-				)
-			) );
-			$cc_number = preg_replace( '/name=".*?\"/i', '', $cc_number );
-			echo $cc_number;
-
-			$cc_expiry = woocommerce_form_field( 'card-expiry', array(
-				'label'				=> 'Expiry (MM/YY)',
-				'placeholder'		=> 'MM / YY',
-				'required'			=> true,
-				'class'				=> array( 'form-row-first' ),
-				'input_class'		=> array( 'wc_stripe-card-expiry' ),
-				'return'			=> true,
-				'custom_attributes'	=> array(
-					'autocomplete'	=> 'off',
-					'pattern'		=> '\d*'
-				)
-			) );
-			$cc_expiry = preg_replace( '/name=".*?\"/i', '', $cc_expiry );
-			echo $cc_expiry;
-
-			$cc_cvc = woocommerce_form_field( 'card-cvc', array(
-				'label'			=> 'Card Code',
-				'placeholder'		=> 'CVC',
-				'required'			=> true,
-				'class'				=> array( 'form-row-last' ),
-				'input_class'		=> array( 'wc_stripe-card-cvc' ),
-				'return'			=> true,
-				'clear'				=> true,
-				'custom_attributes'	=> array(
-					'autocomplete'	=> 'off',
-					'pattern'		=> '\d*'
-				)
-			) );
-			$cc_cvc = preg_replace( '/name=".*?\"/i', '', $cc_cvc );
-			echo $cc_cvc;
-
-			?>
-		</div>
-		<?php
+		wc_stripe_get_template( 'payment-fields.php' );
 	}
 
 	/**
@@ -356,7 +288,7 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 	 * Handles sending the charge to an existing customer, a new customer (that's logged in), or a guest
 	 *
 	 * @access public
-	 * @return void
+	 * @return boolean
 	 */
 	protected function send_to_stripe() {
 		global $woocommerce;
@@ -387,47 +319,8 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 
 			// Make sure we only create customers if a user is logged in
 			if ( is_user_logged_in() ) {
-
-				if ( ! $this->stripe_customer_info ) {
-					$customer = WC_Stripe::create_customer( $this->current_user_id, $data, $customer_description );
-				} else {
-					// If the user is already registered on the stripe servers, retreive their information
-					$customer = WC_Stripe::get_customer( $this->stripe_customer_info['customer_id'] );
-
-					// If the user doesn't have cards or is adding a new one
-					if ( ! count( $this->stripe_customer_info['cards'] ) || $data['chosen_card'] == 'new' ) {
-						// Add new card on stripe servers
-						$card = WC_Stripe::update_customer( $this->stripe_customer_info['customer_id'] . '/cards', array(
-							'card' => $data['token']
-						) );
-
-						// Make new card the default
-						$customer = WC_Stripe::update_customer( $this->stripe_customer_info['customer_id'], array(
-							'default_card' => $card->id
-						) );
-
-						// Add new customer details to database
-						$customerArray = array(
-							'customer_id'	=> $customer->id,
-							'card'			=> array(
-								'id'			=> $card->id,
-								'brand'			=> $card->type,
-								'last4'			=> $card->last4,
-								'exp_year'		=> $card->exp_year,
-								'exp_month'		=> $card->exp_month
-							),
-							'default_card'	=> $card->id
-						);
-						WC_Stripe::update_customer_db( $this->current_user_id, $customerArray );
-
-						$stripe_charge_data['card'] = $card->id;
-					} else {
-						$stripe_charge_data['card'] = $this->stripe_customer_info['cards'][ $data['chosen_card'] ]['id'];
-					}
-				}
-
-				// Set up charging data to include customer information
-				$stripe_charge_data['customer'] = $customer->id;
+				// Add a customer or retrieve an existing one
+				$stripe_charge_data = $this->get_customer( $stripe_charge_data, $data );
 			} else {
 				// Set up one time charge
 				$stripe_charge_data['card'] = $data['token'];
@@ -452,6 +345,61 @@ class WC_Stripe_Gateway extends WC_Payment_Gateway {
 
 			return false;
 		}
+	}
+
+	/**
+	 * Create a customer if the current user isn't already one
+	 * Retrieve a customer if one already exists
+	 * Add a card to a customer if necessary
+	 *
+	 * @access public
+	 * @param $stripe_charge_data
+	 * @param $form_data
+	 * @return array
+	 */
+	public function get_customer( $stripe_charge_data, $form_data ) {
+
+		if ( ! $this->stripe_customer_info ) {
+			$customer = WC_Stripe::create_customer( $this->current_user_id, $form_data, $stripe_charge_data['description'] );
+		} else {
+			// If the user is already registered on the stripe servers, retreive their information
+			$customer = WC_Stripe::get_customer( $this->stripe_customer_info['customer_id'] );
+
+			// If the user doesn't have cards or is adding a new one
+			if ( ! count( $this->stripe_customer_info['cards'] ) || $form_data['chosen_card'] == 'new' ) {
+				// Add new card on stripe servers
+				$card = WC_Stripe::update_customer( $this->stripe_customer_info['customer_id'] . '/cards', array(
+					'card' => $form_data['token']
+				) );
+
+				// Make new card the default
+				$customer = WC_Stripe::update_customer( $this->stripe_customer_info['customer_id'], array(
+					'default_card' => $card->id
+				) );
+
+				// Add new customer details to database
+				$customerArray = array(
+					'customer_id'	=> $customer->id,
+					'card'			=> array(
+						'id'			=> $card->id,
+						'brand'			=> $card->type,
+						'last4'			=> $card->last4,
+						'exp_year'		=> $card->exp_year,
+						'exp_month'		=> $card->exp_month
+					),
+					'default_card'	=> $card->id
+				);
+				WC_Stripe_DB::update_customer( $this->current_user_id, $customerArray );
+
+				$stripe_charge_data['card'] = $card->id;
+			} else {
+				$stripe_charge_data['card'] = $this->stripe_customer_info['cards'][ $form_data['chosen_card'] ]['id'];
+			}
+		}
+		// Set up charging data to include customer information
+		$stripe_charge_data['customer'] = $customer->id;
+
+		return $stripe_charge_data;
 	}
 
 	/**
