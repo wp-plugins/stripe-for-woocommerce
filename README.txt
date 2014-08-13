@@ -2,7 +2,7 @@
 Contributors: stephen.zuniga001
 Tags: woocommerce, stripe, payment gateway, credit card, ecommerce, e-commerce, commerce, cart, checkout
 Requires at least: 3.8.0
-Tested up to: 3.9.1
+Tested up to: 3.9.2
 Stable tag: trunk
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -18,7 +18,7 @@ In reality, there aren't a lot of methods you can use that provide PayPal-like c
 This plugin exists because the current solutions for Stripe on WooCommerce are incomplete or expensive. WooThemes made a [Stripe plugin](http://www.woothemes.com/products/stripe/) but it costs $79. [Striper](https://wordpress.org/plugins/striper/) is the plugin that I used to initally start this plugin process and while free, was lacking a few features that I thought were necessary. It also appears to have dropped out of development recently and I hope that this plugin will fill in where it left off.
 
 = Contributing =
-If you'd like to contribute, feel free to tackle a feature or fix a bug on [Github](https://github.com/stezu/woocommerce-stripe/) and when you're ready, send a pull request. If you'd like to get more involved than that, please e-mail me at [hello@stephenzuniga.com](mailto:hello@stephenzuniga.com).
+If you'd like to contribute, feel free to tackle a feature or fix a bug on [Github](https://github.com/stezu/stripe-for-woocommerce/) and when you're ready, send a pull request. If you'd like to get more involved than that, please e-mail me at [hello@stephenzuniga.com](mailto:hello@stephenzuniga.com).
 
 == Installation ==
 
@@ -40,6 +40,15 @@ The manual installation method involves downloading our eCommerce plugin and upl
 The plugin should automatically update with new features, but you could always download the new version of the plugin and manually update the same way you would manually install.
 
 == Changelog ==
+
+= 1.2 =
+* Feature: Subscriptions!
+* Feature: Filters for customer and charge descriptions sent to Stripe
+* Tweak: Localization wasn't set up before, now if someone wants to translate, they can
+* Tweak: Namespace changed from wc_stripe to s4wc
+* Fix: The most recent card used is marked as default now
+* Fix: Token was sometimes not created
+* Fix: Paying from the pay page didn't send Stripe address details
 
 = 1.11 =
 * Tweak: Database handling is now in it's own class
