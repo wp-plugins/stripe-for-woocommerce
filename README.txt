@@ -41,7 +41,7 @@ The plugin should automatically update with new features, but you could always d
 
 == Changelog ==
 
-= 1.2 =
+= 1.20 =
 * Feature: Subscriptions!
 * Feature: Filters for customer and charge descriptions sent to Stripe
 * Tweak: Localization wasn't set up before, now if someone wants to translate, they can
