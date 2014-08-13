@@ -3,7 +3,7 @@ Contributors: stephen.zuniga001
 Tags: woocommerce, stripe, payment gateway, credit card, ecommerce, e-commerce, commerce, cart, checkout
 Requires at least: 3.8.0
 Tested up to: 3.9.2
-Stable tag: trunk
+Stable tag: 1.20
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
