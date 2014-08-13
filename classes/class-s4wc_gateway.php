@@ -6,7 +6,7 @@
  *
  * @class		S4WC_Gateway
  * @extends		WC_Payment_Gateway
- * @version		1.21
+ * @version		1.22
  * @package		WooCommerce/Classes/Payment
  * @author		Stephen Zuniga
  */
@@ -14,10 +14,10 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class S4WC_Gateway extends WC_Payment_Gateway {
-	protected $GATEWAY_NAME				= 'S4WC';
-	protected $order					= null;
-	protected $transactionId			= null;
-	protected $transactionErrorMessage	= null;
+	protected $GATEWAY_NAME					= 'S4WC';
+	protected $order						= null;
+	protected $transaction_id				= null;
+	protected $transaction_error_message	= null;
 
 	/**
 	 * Constructor for the gateway.
@@ -363,10 +363,10 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			// Create the charge on Stripe's servers - this will charge the user's card
 			$charge = S4WC_API::create_charge( $stripe_charge_data );
 
-			$this->transactionId = $charge->id;
+			$this->transaction_id = $charge->id;
 
 			// Save data for the "Capture"
-			update_post_meta( $this->order->id, 'transaction_id', $this->transactionId );
+			update_post_meta( $this->order->id, 'transaction_id', $this->transaction_id );
 			update_post_meta( $this->order->id, 'capture', strcmp( $this->charge_type, 'authorize' ) == 0 );
 
 			// Save data for cross-reference between Stripe Dashboard and WooCommerce
@@ -375,6 +375,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			return true;
 
 		} catch ( Exception $e ) {
+			$this->transaction_error_message = $e->getMessage();
 			wc_add_notice( __( 'Error:', 'stripe-for-woocommerce' ) . ' ' . $e->getMessage(), 'error' );
 
 			return false;
@@ -387,15 +388,15 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * Add a card to a customer if necessary
 	 *
 	 * @access public
-	 * @param $stripe_charge_data
-	 * @param $form_data
+	 * @param array $stripe_charge_data
+	 * @param array $form_data
 	 * @return array
 	 */
 	public function get_customer( $stripe_charge_data, $form_data ) {
 		$output = array();
 
 		if ( ! $this->stripe_customer_info ) {
-			$customer = S4WC_API::create_customer( $this->current_user_id, $form_data, $stripe_charge_data['description'] );
+			$customer = S4WC_API::create_customer( $form_data, $stripe_charge_data['description'] );
 		} else {
 			// If the user is already registered on the stripe servers, retreive their information
 			$customer = S4WC_API::get_customer( $this->stripe_customer_info['customer_id'] );
@@ -474,8 +475,8 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 		$this->order->add_order_note(
 			sprintf(
 				'%s Credit Card Payment Failed with message: "%s"',
-				$this->GATEWAY_NAME,
-				$this->transactionErrorMessage
+				get_class( $this ),
+				$this->transaction_error_message
 			)
 		);
 	}
@@ -499,8 +500,8 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 		$this->order->add_order_note(
 			sprintf(
 				'%s payment completed with Transaction Id of "%s"',
-				$this->GATEWAY_NAME,
-				$this->transactionId
+				get_class( $this ),
+				$this->transaction_id
 			)
 		);
 

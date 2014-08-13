@@ -6,7 +6,7 @@
  *
  * @class		S4WC_Subscriptions_Gateway
  * @extends		S4WC_Gateway
- * @version		1.21
+ * @version		1.22
  * @package		WooCommerce/Classes/Payment
  * @author		Stephen Zuniga
  */
@@ -59,10 +59,10 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 
 			$charge = $this->process_subscription_payment( $initial_payment, $this->order );
 
-			$this->transactionId = $charge->id;
+			$this->transaction_id = $charge->id;
 
 			// Save data for the "Capture"
-			update_post_meta( $this->order->id, 'transaction_id', $this->transactionId );
+			update_post_meta( $this->order->id, 'transaction_id', $this->transaction_id );
 			update_post_meta( $this->order->id, 'capture', strcmp( $this->charge_type, 'authorize' ) == 0 );
 
 			// Save data for cross-reference between Stripe Dashboard and WooCommerce
@@ -71,6 +71,7 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 			return true;
 
 		} catch ( Exception $e ) {
+			$this->transaction_error_message = $e->getMessage();
 			wc_add_notice( __( 'Error:', 'stripe-for-woocommerce' ) . ' ' . $e->getMessage(), 'error' );
 
 			return false;

@@ -3,7 +3,7 @@
  * Functions for interfacing with Stripe's API
  *
  * @class 		S4WC_API
- * @version		1.21
+ * @version		1.22
  * @author 		Stephen Zuniga
  */
 
@@ -15,7 +15,6 @@ class S4WC_API {
 	 * Create customer on stripe servers
 	 *
 	 * @access public
-	 * @param integer $user_id
 	 * @param array $form_data
 	 * @param string $customer_description
 	 * @return array
