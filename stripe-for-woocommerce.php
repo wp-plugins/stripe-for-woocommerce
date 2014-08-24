@@ -3,7 +3,7 @@
  * Plugin Name: Stripe for WooCommerce
  * Plugin URI: https://wordpress.org/plugins/stripe-for-woocommerce
  * Description: Use Stripe for collecting credit card payments on WooCommerce.
- * Version: 1.22
+ * Version: 1.23
  * Author: Stephen Zuniga
  * Author URI: http://stephenzuniga.com
  *
@@ -142,65 +142,50 @@ function s4wc_order_status_completed( $order_id = null ) {
 add_action( 'woocommerce_order_status_processing_to_completed', 's4wc_order_status_completed' );
 
 /**
- * Handles posting notifications to the user when their credit card information is invalid
+ * Get error message for form validator given field name and type of error
  *
- * @access public
+ * @param $field
+ * @param $type
+ * @return string
+ */
+function s4wc_get_form_error_message( $field, $type = 'undefined' ) {
+
+	if ( $type === 'invalid' ) {
+		return sprintf( __( 'Please enter a valid %s.', 'stripe-for-woocommerce' ), "<strong>$field</strong>" );
+	} else {
+		return sprintf( __( '%s is a required field.', 'stripe-for-woocommerce' ), "<strong>$field</strong>" );
+	}
+}
+
+/**
+ * Validate credit card form fields
+ *
  * @return void
  */
-function s4wc_validation_errors() {
+function s4wc_validate_form() {
+	$form = array(
+		'card-number'	=> isset( $_POST['s4wc-card-number'] ) ? $_POST['s4wc-card-number'] : null,
+		'card-expiry'	=> isset( $_POST['s4wc-card-expiry'] ) ? $_POST['s4wc-card-expiry'] : null,
+		'card-cvc'		=> isset( $_POST['s4wc-card-cvc'] ) ? $_POST['s4wc-card-cvc'] : null,
+	);
 
-	foreach( $_POST['errors'] as $error ) {
-		$message = '';
+	if ( $form['card-number'] ) {
+		$field = __( 'Credit Card Number', 'stripe-for-woocommerce' );
 
-		$message .= '<strong>';
-		switch ( $error['field'] ) {
-			case 'number':
-				$message .= __( 'Credit Card Number', 'stripe-for-woocommerce' );
-				break;
-			case 'expiration':
-				$message .= __( 'Credit Card Expiration', 'stripe-for-woocommerce' );
-				break;
-			case 'cvc':
-				$message .= __( 'Credit Card CVC', 'stripe-for-woocommerce' );
-				break;
-		}
-		$message .= '</strong>';
-
-		switch ( $error['type'] ) {
-			case 'undefined':
-				$message .= ' ' . __( 'is a required field', 'stripe-for-woocommerce' );
-				break;
-			case 'invalid':
-				$message = __( 'Please enter a valid', 'stripe-for-woocommerce' ) . ' ' . $message;
-				break;
-		}
-		$message .= '.';
-
-		wc_add_notice( $message, 'error' );
+		wc_add_notice( s4wc_get_form_error_message( $field, $form['card-number'] ), 'error' );
 	}
+	if ( $form['card-expiry'] ) {
+		$field = __( 'Credit Card Expiration', 'stripe-for-woocommerce' );
 
-	if ( is_ajax() ) {
-
-		ob_start();
-		wc_print_notices();
-		$messages = ob_get_clean();
-
-		echo '<!--S4WC_START-->' . json_encode(
-			array(
-				'result'	=> 'failure',
-				'messages' 	=> $messages,
-				'refresh' 	=> isset( WC()->session->refresh_totals ) ? 'true' : 'false',
-				'reload'    => isset( WC()->session->reload_checkout ) ? 'true' : 'false'
-			)
-		) . '<!--S4WC_END-->';
-
-		unset( WC()->session->refresh_totals, WC()->session->reload_checkout );
-		exit;
+		wc_add_notice( s4wc_get_form_error_message( $field, $form['card-expiry'] ), 'error' );
 	}
-	die();
+	if ( $form['card-cvc'] ) {
+		$field = __( 'Credit Card CVC', 'stripe-for-woocommerce' );
+
+		wc_add_notice( s4wc_get_form_error_message( $field, $form['card-cvc'] ), 'error' );
+	}
 }
-add_action( 'wp_ajax_stripe_form_validation', 's4wc_validation_errors' );
-add_action( 'wp_ajax_nopriv_stripe_form_validation', 's4wc_validation_errors' );
+add_action( 'woocommerce_checkout_process', 's4wc_validate_form' );
 
 /**
  * Wrapper of wc_get_template to relate directly to woocommerce-stripe
