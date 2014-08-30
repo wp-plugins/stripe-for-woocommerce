@@ -5,7 +5,7 @@
  * Override this template by copying it to yourtheme/woocommerce/woocommerce-stripe/payment-fields.php
  *
  * @author		Stephen Zuniga
- * @version		1.23
+ * @version		1.24
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
@@ -23,7 +23,7 @@ if ( $s4wc->settings['description'] ) : ?>
 
 $stripe_customer_info = get_user_meta( get_current_user_id(), $s4wc->settings['stripe_db_location'], true );
 
-if( is_user_logged_in() && $stripe_customer_info && isset( $stripe_customer_info['cards'] ) && count( $stripe_customer_info['cards'] ) ) :
+if( is_user_logged_in() && $stripe_customer_info && isset( $stripe_customer_info['cards'] ) && count( $stripe_customer_info['cards'] ) && $s4wc->settings['saved_cards'] === 'yes' ) :
 
 	// Add option to use a saved card
 	foreach ( $stripe_customer_info['cards'] as $i => $credit_card ) : ?>

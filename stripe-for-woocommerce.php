@@ -3,7 +3,7 @@
  * Plugin Name: Stripe for WooCommerce
  * Plugin URI: https://wordpress.org/plugins/stripe-for-woocommerce
  * Description: Use Stripe for collecting credit card payments on WooCommerce.
- * Version: 1.23
+ * Version: 1.24
  * Author: Stephen Zuniga
  * Author URI: http://stephenzuniga.com
  *
@@ -52,6 +52,7 @@ class S4WC {
 		$this->settings['test_secret_key']			= isset( $this->settings['test_secret_key'] ) ? $this->settings['test_secret_key'] : '';
 		$this->settings['live_publishable_key']		= isset( $this->settings['live_publishable_key'] ) ? $this->settings['live_publishable_key'] : '';
 		$this->settings['live_secret_key']			= isset( $this->settings['live_secret_key'] ) ? $this->settings['live_secret_key'] : '';
+		$this->settings['saved_cards']				= isset( $this->settings['saved_cards'] ) ? $this->settings['saved_cards'] : 'yes';
 
 		// API Info
 		$this->settings['api_endpoint']				= 'https://api.stripe.com/';
@@ -62,8 +63,8 @@ class S4WC {
 		$this->settings['stripe_db_location']		= $this->settings['testmode'] == 'yes' ? '_stripe_test_customer_info' : '_stripe_live_customer_info';
 
 		// Hooks
-		add_filter( 'woocommerce_payment_gateways', array( &$this, 'woocommerce_stripe_gateway' ) );
-		add_action( 'woocommerce_after_my_account', array( &$this, 'account_saved_cards' ) );
+		add_filter( 'woocommerce_payment_gateways', array( $this, 'woocommerce_stripe_gateway' ) );
+		add_action( 'woocommerce_after_my_account', array( $this, 'account_saved_cards' ) );
 
 		// Localization
 		load_plugin_textdomain( 'stripe-for-woocommerce', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
@@ -102,7 +103,10 @@ class S4WC {
 	 * @return void
 	 */
 	public function account_saved_cards() {
-		s4wc_get_template( 'saved-cards.php' );
+
+		if ( $this->settings['saved_cards'] === 'yes' ) {
+			s4wc_get_template( 'saved-cards.php' );
+		}
 	}
 }
 
@@ -116,21 +120,17 @@ $GLOBALS['s4wc'] = new S4WC();
  * @return bool
  */
 function s4wc_order_status_completed( $order_id = null ) {
-	global $woocommerce, $s4wc;
 
 	if ( ! $order_id ) {
 		$order_id = $_POST['order_id'];
 	}
 
-	$data = get_post_meta( $order_id );
-	$total = $data['_order_total'][0] * 100;
+	if ( get_post_meta( $order_id, 'capture', true ) ) {
 
-	$params = array();
-	if( isset( $_POST['amount'] ) && $amount = $_POST['amount'] ) {
-		$params['amount'] = round( $amount );
-	}
-
-	if( get_post_meta( $order_id, 'capture', true ) ) {
+		$params = array();
+		if ( isset( $_POST['amount'] )  ) {
+			$params['amount'] = round( $_POST['amount'] );
+		}
 
 		$transaction_id = get_post_meta( $order_id, 'transaction_id', true );
 
@@ -185,7 +185,7 @@ function s4wc_validate_form() {
 		wc_add_notice( s4wc_get_form_error_message( $field, $form['card-cvc'] ), 'error' );
 	}
 }
-add_action( 'woocommerce_checkout_process', 's4wc_validate_form' );
+add_action( 'woocommerce_after_checkout_validation', 's4wc_validate_form' );
 
 /**
  * Wrapper of wc_get_template to relate directly to woocommerce-stripe

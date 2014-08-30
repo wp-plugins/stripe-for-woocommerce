@@ -6,7 +6,7 @@
  *
  * @class		S4WC_Gateway
  * @extends		WC_Payment_Gateway
- * @version		1.23
+ * @version		1.24
  * @package		WooCommerce/Classes/Payment
  * @author		Stephen Zuniga
  */
@@ -33,7 +33,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 		$this->method_title				= 'Stripe for WooCommerce';
 		$this->has_fields				= true;
 		$this->api_endpoint				= 'https://api.stripe.com/';
-		$this->supports 				= array(
+		$this->supports					= array(
 			'products',
 			'subscriptions',
 			'subscription_cancellation',
@@ -76,14 +76,14 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * @return bool
 	 */
 	public function perform_checks() {
-		global $woocommerce, $s4wc;
+		global $s4wc;
 
 		if ( $this->enabled == 'no') {
 			return false;
 		}
 
 		// We're using the credit card field bundles with WC 2.1.0, and this entire plugin won't work without it
-		if ( $woocommerce->version < '2.1.0' ) {
+		if ( WC()->version < '2.1.0' ) {
 			echo '<div class="error"><p>' . __( 'Stripe for WooCommerce uses some advanced features introduced in WooCommerce 2.1.0. Please update WooCommerce to continue using Stripe for WooCommerce.', 'stripe-for-woocommerce' ) . '</p></div>';
 			return false;
 		}
@@ -109,14 +109,14 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * @return bool
 	 */
 	public function is_available() {
-		global $woocommerce, $s4wc;
+		global $s4wc;
 
 		if ( $this->enabled == 'no' ) {
 			return false;
 		}
 
 		// We're using the credit card field bundles with WC 2.1.0, and this entire plugin won't work without it
-		if ( $woocommerce->version < '2.1.0' ) {
+		if ( WC()->version < '2.1.0' ) {
 			return false;
 		}
 
@@ -203,6 +203,12 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 				'title'			=> __( 'Stripe API Live Publishable key', 'stripe-for-woocommerce' ),
 				'default'		=> '',
 			),
+			'saved_cards' => array(
+				'type'			=> 'checkbox',
+				'title'			=> __( 'Saved Cards', 'stripe-for-woocommerce' ),
+				'description'	=> __( 'Allow customers to use saved cards for future purchases.', 'stripe-for-woocommerce' ),
+				'default'		=> 'yes',
+			),
 		);
 	}
 
@@ -261,37 +267,37 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 		global $s4wc;
 
 		// Main stripe js
-		wp_enqueue_script( 'stripe', 'https://js.stripe.com/v2/', '', '1.23', true );
+		wp_enqueue_script( 'stripe', 'https://js.stripe.com/v2/', '', '1.24', true );
 
 		// jQuery Payment
 		wp_enqueue_script( 'paymentjs', plugins_url( 'assets/js/jquery.payment.min.js', dirname( __FILE__ ) ), array( 'jquery' ), '1.4.0', true );
 
 		// Plugin js
-		wp_enqueue_script( 's4wc_js', plugins_url( 'assets/js/s4wc.min.js', dirname( __FILE__ ) ), array( 'stripe', 'paymentjs' ), '1.23', true );
+		wp_enqueue_script( 's4wc_js', plugins_url( 'assets/js/s4wc.min.js', dirname( __FILE__ ) ), array( 'stripe', 'paymentjs' ), '1.24', true );
 
 		// Plugin css
-		wp_enqueue_style( 's4wc_css', plugins_url( 'assets/css/s4wc.css', dirname( __FILE__ ) ), false, '1.23');
+		wp_enqueue_style( 's4wc_css', plugins_url( 'assets/css/s4wc.css', dirname( __FILE__ ) ), false, '1.24');
 
 		// Add data that s4wc.js needs
 		$s4wc_info = array(
-			'ajaxurl'			=> admin_url( 'admin-ajax.php' ),
 			'publishableKey'	=> $s4wc->settings['publishable_key'],
+			'savedCardsEnabled'	=> $s4wc->settings['saved_cards'] === 'yes' ? true : false,
 			'hasCard'			=> ( $this->stripe_customer_info && count( $this->stripe_customer_info['cards'] ) ) ? true : false
 		);
 
 		// If we're on the pay page, Stripe needs the address
 		if ( is_checkout_pay_page() ) {
-			$order_key = urldecode( $_GET['key'] );
-			$order_id  = absint( get_query_var( 'order-pay' ) );
-			$order     = new WC_Order( $order_id );
+			$order_key	= urldecode( $_GET['key'] );
+			$order_id 	= absint( get_query_var( 'order-pay' ) );
+			$order		= new WC_Order( $order_id );
 
 			if ( $order->id == $order_id && $order->order_key == $order_key ) {
 				$s4wc_info['billing_first_name']	= $order->billing_first_name;
-				$s4wc_info['billing_last_name']	= $order->billing_last_name;
-				$s4wc_info['billing_address_1']	= $order->billing_address_1;
-				$s4wc_info['billing_address_2']	= $order->billing_address_2;
+				$s4wc_info['billing_last_name']		= $order->billing_last_name;
+				$s4wc_info['billing_address_1']		= $order->billing_address_1;
+				$s4wc_info['billing_address_2']		= $order->billing_address_2;
 				$s4wc_info['billing_city']			= $order->billing_city;
-				$s4wc_info['billing_state']		= $order->billing_state;
+				$s4wc_info['billing_state']			= $order->billing_state;
 				$s4wc_info['billing_postcode']		= $order->billing_postcode;
 				$s4wc_info['billing_country']		= $order->billing_country;
 			}
@@ -318,7 +324,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * @return boolean
 	 */
 	protected function send_to_stripe() {
-		global $woocommerce;
+		global $s4wc;
 
 		// Get the credit card details submitted by the form
 		$form_data = $this->get_form_data();
@@ -335,29 +341,30 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			$stripe_charge_data = array(
 				'amount'		=> $form_data['amount'], // amount in cents
 				'currency'		=> $form_data['currency'],
-				'capture'		=> ($this->charge_type == 'capture') ? 'true' : 'false'
+				'capture'		=> ( $this->charge_type == 'capture' ) ? 'true' : 'false'
 			);
 
 			// Make sure we only create customers if a user is logged in
-			if ( is_user_logged_in() ) {
+			if ( is_user_logged_in() && $s4wc->settings['saved_cards'] === 'yes' ) {
 				$stripe_charge_data['description'] = $this->current_user->user_login . ' (#' . $this->current_user_id . ' - ' . $this->current_user->user_email . ') ' . $form_data['card']['name']; // username (user_id - user_email) Full Name
 
 				// Add a customer or retrieve an existing one
-				$customer = $this->get_customer( $stripe_charge_data, $form_data );
+				$customer = $this->get_customer( $stripe_charge_data['description'], $form_data );
 
 				$stripe_charge_data['card'] = $customer['card'];
-				$stripe_charge_data['customer'] = $customer['id'];
+				$stripe_charge_data['customer'] = $customer['customer_id'];
+
+				// Update default card
+				if ( $form_data['chosen_card'] !== 'new' ) {
+					$default_card = $this->stripe_customer_info['cards'][ $form_data['chosen_card'] ]['id'];
+					S4WC_DB::update_customer( $this->current_user_id, array( 'default_card' => $default_card ) );
+				}
+
 			} else {
 				$stripe_charge_data['description'] = __( 'Guest', 'stripe-for-woocommerce' ) . ' (' . $this->order->billing_email . ') ' . $form_data['card']['name']; // Guest (user_email) Full Name
 
 				// Set up one time charge
 				$stripe_charge_data['card'] = $form_data['token'];
-			}
-
-			// Update default card
-			if ( $form_data['chosen_card'] !== 'new' ) {
-				$default_card = $this->stripe_customer_info['cards'][ $form_data['chosen_card'] ]['id'];
-				S4WC_DB::update_customer( $this->current_user_id, array( 'default_card' => $default_card ) );
 			}
 
 			$stripe_charge_data['description'] = apply_filters( 's4wc_charge_description', $stripe_charge_data['description'], $stripe_charge_data['description'], $form_data );
@@ -372,11 +379,15 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			update_post_meta( $this->order->id, 'capture', strcmp( $this->charge_type, 'authorize' ) == 0 );
 
 			// Save data for cross-reference between Stripe Dashboard and WooCommerce
-			update_post_meta( $this->order->id, 'customer_id', $customer['id'] );
+			update_post_meta( $this->order->id, 'customer_id', $customer['customer_id'] );
 
 			return true;
 
 		} catch ( Exception $e ) {
+
+			// Stop page reload if we have errors to show
+			unset( WC()->session->reload_checkout );
+
 			$this->transaction_error_message = $e->getMessage();
 			wc_add_notice( __( 'Error:', 'stripe-for-woocommerce' ) . ' ' . $e->getMessage(), 'error' );
 
@@ -390,15 +401,17 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * Add a card to a customer if necessary
 	 *
 	 * @access public
-	 * @param array $stripe_charge_data
+	 * @param string $description
 	 * @param array $form_data
 	 * @return array
 	 */
-	public function get_customer( $stripe_charge_data, $form_data ) {
+	public function get_customer( $description, $form_data ) {
 		$output = array();
 
 		if ( ! $this->stripe_customer_info ) {
-			$customer = S4WC_API::create_customer( $form_data, $stripe_charge_data['description'] );
+			$customer = S4WC_API::create_customer( $form_data, $description );
+
+			$output['card'] = $customer->default_card;
 		} else {
 			// If the user is already registered on the stripe servers, retreive their information
 			$customer = S4WC_API::get_customer( $this->stripe_customer_info['customer_id'] );
@@ -435,7 +448,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			}
 		}
 		// Set up charging data to include customer information
-		$output['id'] = $customer->id;
+		$output['customer_id'] = $customer->id;
 
 		return $output;
 	}
@@ -448,7 +461,6 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * @return array
 	 */
 	public function process_payment( $order_id ) {
-		global $woocommerce;
 
 		$this->order = new WC_Order( $order_id );
 
@@ -463,7 +475,11 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 			return $result;
 		} else {
 			$this->payment_failed();
-			wc_add_notice( __( 'Transaction Error: Could not complete your payment.', 'stripe-for-woocommerce' ), 'error' );
+
+			// Add a generic error message if we don't currently have any others
+			if ( wc_notice_count( 'error' ) == 0 ) {
+				wc_add_notice( __( 'Transaction Error: Could not complete your payment.', 'stripe-for-woocommerce' ), 'error' );
+			}
 		}
 	}
 
@@ -490,14 +506,13 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 	 * @return void
 	 */
 	protected function order_complete() {
-		global $woocommerce;
 
 		if ( $this->order->status == 'completed' ) {
 			return;
 		}
 
 		$this->order->payment_complete();
-		$woocommerce->cart->empty_cart();
+		WC()->cart->empty_cart();
 
 		$this->order->add_order_note(
 			sprintf(
