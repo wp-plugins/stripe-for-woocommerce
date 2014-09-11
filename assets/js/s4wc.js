@@ -1,3 +1,6 @@
+// Let jsHint know about the globals that it should stop pestering me about
+/* global Stripe, s4wc_info, woocommerce_params */
+
 // Set API key
 Stripe.setPublishableKey( s4wc_info.publishableKey );
 
@@ -5,7 +8,7 @@ jQuery( function ( $ ) {
     var $body = $( 'body' ),
         $form = $( 'form.checkout, form#order_review' ),
         savedFieldValues = {},
-        $ccForm;
+        $ccForm, $ccNumber, $ccExpiry, $ccCvc;
 
     // Make sure the form doesn't use html validation
     $form.attr('novalidate', 'novalidate');
@@ -19,7 +22,7 @@ jQuery( function ( $ ) {
     });
 
     // Checkout Form
-    $( 'form.checkout' ).on( 'checkout_place_order_s4wc', function () {
+    $( 'form.checkout' ).on( 'checkout_place_order', function () {
         return stripeFormHandler();
     });
 
@@ -30,9 +33,6 @@ jQuery( function ( $ ) {
 
     // Both Forms
     $form.on( 'keyup change', '#card-number, #card-expiry, #card-cvc, input[name="s4wc_card"], input[name="payment_method"]', function () {
-        var $ccNumber = $( '.s4wc-card-number' ),
-            $ccExpiry = $( '.s4wc-card-expiry' ),
-            $ccCvc    = $( '.s4wc-card-cvc' );
 
         // Save credit card details in case the address changes (or something else)
         savedFieldValues.number = {
@@ -50,11 +50,11 @@ jQuery( function ( $ ) {
     });
 
     function initCCForm() {
-        var $ccNumber = $( '.s4wc-card-number' ),
-            $ccExpiry = $( '.s4wc-card-expiry' ),
-            $ccCvc    = $( '.s4wc-card-cvc' );
 
-        $ccForm = $( '#s4wc-creditcard-form' );
+        $ccForm   = $( '#s4wc-creditcard-form' );
+        $ccNumber = $ccForm.find( '.s4wc-card-number' );
+        $ccExpiry = $ccForm.find( '.s4wc-card-expiry' );
+        $ccCvc    = $ccForm.find( '.s4wc-card-cvc' );
 
         // Hide the CC form if the user has a saved card.
         if ( s4wc_info.hasCard && s4wc_info.savedCardsEnabled ) {

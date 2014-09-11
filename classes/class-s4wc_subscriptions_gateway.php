@@ -6,7 +6,7 @@
  *
  * @class		S4WC_Subscriptions_Gateway
  * @extends		S4WC_Gateway
- * @version		1.24
+ * @version		1.25
  * @package		WooCommerce/Classes/Payment
  * @author		Stephen Zuniga
  */
@@ -15,12 +15,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 
-	/**
-	 * Constructor for the gateway.
-	 *
-	 * @access public
-	 * @return void
-	 */
 	public function __construct() {
 		parent::__construct();
 
@@ -32,8 +26,8 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 	 * Send subscription form data to Stripe
 	 * Handles sending the charge to an existing customer, a new customer (that's logged in), or a guest
 	 *
-	 * @access protected
-	 * @return boolean
+	 * @access		protected
+	 * @return		bool
 	 */
 	protected function subscription_to_stripe() {
 
@@ -78,8 +72,9 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 			// Stop page reload if we have errors to show
 			unset( WC()->session->reload_checkout );
 
-			$this->transaction_error_message = $e->getMessage();
-			wc_add_notice( __( 'Subscription Error:', 'stripe-for-woocommerce' ) . ' ' . $e->getMessage(), 'error' );
+			$message = $this->get_stripe_error_message( $e );
+
+			wc_add_notice( __( 'Subscription Error:', 'stripe-for-woocommerce' ) . ' ' . $message, 'error' );
 
 			return false;
 		}
@@ -88,11 +83,11 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 	/**
 	 * Process a scheduled payment
 	 *
-	 * @access public
-	 * @param float $amount_to_charge
-	 * @param WC_Order $order
-	 * @param int $product_id
-	 * @return void
+	 * @access		public
+	 * @param		float $amount_to_charge
+	 * @param		WC_Order $order
+	 * @param		int $product_id
+	 * @return		void
 	 */
 	public function scheduled_subscription_payment( $amount_to_charge, $order, $product_id ) {
 		$charge = $this->process_subscription_payment( $order, $amount_to_charge );
@@ -107,9 +102,9 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 	/**
 	 * Process the payment and return the result
 	 *
-	 * @access public
-	 * @param int $order_id
-	 * @return array
+	 * @access		public
+	 * @param		int $order_id
+	 * @return		array
 	 */
 	public function process_payment( $order_id ) {
 
@@ -143,10 +138,10 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 	/**
 	 * Process the subscription payment and return the result
 	 *
-	 * @access public
-	 * @param WC_Order $order
-	 * @param int $amount
-	 * @return array
+	 * @access		public
+	 * @param		WC_Order $order
+	 * @param		int $amount
+	 * @return		array
 	 */
 	public function process_subscription_payment( $order, $amount = 0 ) {
 		global $s4wc;
@@ -156,18 +151,20 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 			return true;
 		}
 
-		// Set a default name, override with a subscription if it exists for Stripe's dashboard
-		$product_name = 'Subscription';
+		// Get customer id
+		$customer = get_user_meta( $order->user_id, $s4wc->settings['stripe_db_location'], true );
+
+		// Set a default name, override with a product name if it exists for Stripe's dashboard
+		$product_name = __( 'Subscription', 'stripe-for-woocommerce' );
 		$order_items = $order->get_items();
+
+		// Grab first subscription name and use it
 		foreach ( $order_items as $key => $item ) {
 			if ( isset( $item['subscription_status'] ) ) {
 				$product_name = $item['name'];
 				break;
 			}
 		}
-
-		// Get customer id
-		$customer = get_user_meta( $order->user_id, $s4wc->settings['stripe_db_location'], true );
 
 		// Charge description
 		$charge_description = sprintf(
@@ -180,7 +177,7 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
 		$charge_data = array(
 			'amount'		=> $amount * 100, // amount in cents
 			'currency'		=> strtolower( get_woocommerce_currency() ),
-			'description'	=> apply_filters( 's4wc_subscription_charge_description', $charge_description, $charge_description, $order ),
+			'description'	=> apply_filters( 's4wc_subscription_charge_description', $charge_description, $order ),
 			'customer'		=> $customer['customer_id'],
 			'card'			=> $customer['default_card']
 		);
