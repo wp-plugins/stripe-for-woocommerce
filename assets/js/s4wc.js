@@ -11,7 +11,7 @@ jQuery( function ( $ ) {
         $ccForm, $ccNumber, $ccExpiry, $ccCvc;
 
     // Make sure the form doesn't use html validation
-    $form.attr('novalidate', 'novalidate');
+    $form.attr( 'novalidate', 'novalidate' );
 
     // Make sure the credit card form exists before we try working with it
     $(window).on( 'load.s4wc', function() {
@@ -32,7 +32,7 @@ jQuery( function ( $ ) {
     });
 
     // Both Forms
-    $form.on( 'keyup change', '#card-number, #card-expiry, #card-cvc, input[name="s4wc_card"], input[name="payment_method"]', function () {
+    $form.on( 'keyup change', '#s4wc-card-number, #s4wc-card-expiry, #s4wc-card-cvc, input[name="s4wc_card"], input[name="payment_method"]', function () {
 
         // Save credit card details in case the address changes (or something else)
         savedFieldValues.number = {
@@ -51,10 +51,10 @@ jQuery( function ( $ ) {
 
     function initCCForm() {
 
-        $ccForm   = $( '#s4wc-creditcard-form' );
-        $ccNumber = $ccForm.find( '.s4wc-card-number' );
-        $ccExpiry = $ccForm.find( '.s4wc-card-expiry' );
-        $ccCvc    = $ccForm.find( '.s4wc-card-cvc' );
+        $ccForm   = $( '#s4wc-cc-form' );
+        $ccNumber = $ccForm.find( '#s4wc-card-number' );
+        $ccExpiry = $ccForm.find( '#s4wc-card-expiry' );
+        $ccCvc    = $ccForm.find( '#s4wc-card-cvc' );
 
         // Hide the CC form if the user has a saved card.
         if ( s4wc_info.hasCard && s4wc_info.savedCardsEnabled ) {
@@ -83,30 +83,21 @@ jQuery( function ( $ ) {
         }
 
         // Format fields
-        $ccNumber
-            .payment( 'formatCardNumber' )
-            .after( '<span class="s4wc-card-image"></span>' );
-        $ccExpiry.payment( 'formatCardExpiry' );
-        $ccCvc
-            .payment( 'formatCardCVC' )
-            .focus( function () {
-                $( '.s4wc-card-number' ).addClass( 'cvc' );
-            })
-            .blur( function () {
-                $( '.s4wc-card-number' ).removeClass( 'cvc' );
-            });
+        $ccNumber.attr( 'pattern', '\\d*' );
+        $ccExpiry.attr( 'pattern', '\\d*' );
+        $ccCvc.attr( 'pattern', '\\d*' );
     }
 
     function stripeFormHandler () {
         if ( $( '#payment_method_s4wc' ).is( ':checked' ) && ( ! $( 'input[name="s4wc_card"]' ).length || $( 'input[name="s4wc_card"]:checked' ).val() === 'new' ) ) {
 
             if ( ! $( 'input.stripe_token' ).length ) {
-                var cardExpiry = $( '.s4wc-card-expiry' ).payment( 'cardExpiryVal' ),
-                    name = ( $( '#billing_first_name' ).val() || $( '#billing_last_name' ).val() ) ? $( '#billing_first_name' ).val() + ' ' + $( '#billing_last_name' ).val() : s4wc_info.billing_first_name + ' ' + s4wc_info.billing_last_name;
+                var cardExpiry = $ccExpiry.payment( 'cardExpiryVal' ),
+                    name = ( $( '#billing_first_name' ).val() || $( '#billing_last_name' ).val() ) ? $( '#billing_first_name' ).val() + ' ' + $( '#billing_last_name' ).val() : s4wc_info.billing_name;
 
                 var stripeData = {
-                    number          : $( '.s4wc-card-number' ).val() || '',
-                    cvc             : $( '.s4wc-card-cvc' ).val() || '',
+                    number          : $ccNumber.val() || '',
+                    cvc             : $ccCvc.val() || '',
                     exp_month       : cardExpiry.month || '',
                     exp_year        : cardExpiry.year || '',
                     name            : $( '.s4wc-billing-name' ).val() || name,
