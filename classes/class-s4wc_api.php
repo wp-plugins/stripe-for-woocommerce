@@ -3,7 +3,7 @@
  * Functions for interfacing with Stripe's API
  *
  * @class       S4WC_API
- * @version     1.30
+ * @version     1.31
  * @author      Stephen Zuniga
  */
 
@@ -213,7 +213,7 @@ class S4WC_API {
 
         // Handle response
         if ( ! empty( $parsed_response->error ) ) {
-            throw new Exception( __( $parsed_response->error->message, 'stripe-for-woocommerce' ) );
+            throw new Exception( $parsed_response->error->code );
         } elseif ( empty( $parsed_response->id ) ) {
             throw new Exception( __( 'Invalid response.', 'stripe-for-woocommerce' ) );
         }

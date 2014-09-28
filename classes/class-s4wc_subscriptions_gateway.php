@@ -6,7 +6,7 @@
  *
  * @class       S4WC_Subscriptions_Gateway
  * @extends     S4WC_Gateway
- * @version     1.30
+ * @version     1.31
  * @package     WooCommerce/Classes/Payment
  * @author      Stephen Zuniga
  */
@@ -34,7 +34,7 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
         if ( WC_Subscriptions_Order::order_contains_subscription( $order_id ) ) {
             $this->order = new WC_Order( $order_id );
 
-            if ( $this->subscription_to_stripe() ) {
+            if ( $this->send_to_stripe() ) {
                 $this->order_complete();
 
                 WC_Subscriptions_Manager::activate_subscriptions_for_order( $this->order );
@@ -62,11 +62,10 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
      * Process the subscription payment and return the result
      *
      * @access      public
-     * @param       WC_Order $order
      * @param       int $amount
      * @return      array
      */
-    public function process_subscription_payment( $order, $amount = 0 ) {
+    public function process_subscription_payment( $amount = 0 ) {
         global $s4wc;
 
         // Can't send to stripe without a value, assume it's good to go.
@@ -75,103 +74,27 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
         }
 
         // Get customer id
-        $customer = get_user_meta( $order->user_id, $s4wc->settings['stripe_db_location'], true );
-
-        // Set a default name, override with a product name if it exists for Stripe's dashboard
-        $product_name = __( 'Subscription', 'stripe-for-woocommerce' );
-        $order_items = $order->get_items();
-
-        // Grab first subscription name and use it
-        foreach ( $order_items as $key => $item ) {
-            if ( isset( $item['subscription_status'] ) ) {
-                $product_name = $item['name'];
-                break;
-            }
-        }
-
-        // Default charge description
-        $charge_description = sprintf(
-            __( 'Payment for %s (Order: %s)', 'stripe-for-woocommerce' ),
-            $product_name,
-            $order->get_order_number()
-        );
+        $customer = get_user_meta( $this->order->user_id, $s4wc->settings['stripe_db_location'], true );
 
         // Allow options to be set without modifying sensitive data like amount, currency, etc.
-        $charge_data = apply_filters( 's4wc_subscription_charge_data', array(), $order );
+        $charge_data = apply_filters( 's4wc_subscription_charge_data', array(), $this->order );
 
         // Set up basics for charging
         $charge_data['amount']      = $amount * 100; // amount in cents
         $charge_data['currency']    = strtolower( get_woocommerce_currency() );
         $charge_data['customer']    = $customer['customer_id'];
         $charge_data['card']        = $customer['default_card'];
-        $charge_data['description'] = apply_filters( 's4wc_subscription_charge_description', $charge_description, $order );
+        $charge_data['description'] = $this->get_charge_description( 'subscription' );
 
         $charge = S4WC_API::create_charge( $charge_data );
 
         if ( isset( $charge->id ) ) {
-            $order->add_order_note( sprintf( __( 'Subscription paid (%s)', 'stripe-for-woocommerce' ), $charge->id ) );
+            $this->order->add_order_note( sprintf( __( 'Subscription paid (%s)', 'stripe-for-woocommerce' ), $charge->id ) );
 
             return $charge;
         }
+
         return false;
-    }
-
-    /**
-     * Send subscription form data to Stripe
-     * Handles sending the charge to an existing customer, a new customer (that's logged in), or a guest
-     *
-     * @access      protected
-     * @return      bool
-     */
-    protected function subscription_to_stripe() {
-
-        // Get the credit card details submitted by the form
-        $form_data = $this->get_form_data();
-
-        // If there are errors on the form, don't bother sending to Stripe.
-        if ( $form_data['errors'] == 1 ) {
-            return;
-        }
-
-        // Set up the charge for Stripe's servers
-        try {
-
-            // Add a customer or retrieve an existing one
-            $description = $this->current_user->user_login . ' (#' . $this->current_user_id . ' - ' . $this->current_user->user_email . ') ' . $form_data['customer']['name']; // username (user_id - user_email) Full Name
-            $customer = $this->get_customer( $description, $form_data );
-
-            // Update default card
-            if ( $form_data['chosen_card'] !== 'new' ) {
-                $default_card = $this->stripe_customer_info['cards'][ (int)$form_data['chosen_card'] ]['id'];
-                S4WC_DB::update_customer( $this->current_user_id, array( 'default_card' => $default_card ) );
-            }
-
-            $initial_payment = WC_Subscriptions_Order::get_total_initial_payment( $this->order );
-
-            $charge = $this->process_subscription_payment( $this->order, $initial_payment );
-
-            $this->transaction_id = $charge->id;
-
-            // Save data for the "Capture"
-            update_post_meta( $this->order->id, '_transaction_id', $this->transaction_id );
-            update_post_meta( $this->order->id, 'capture', strcmp( $this->settings['charge_type'], 'authorize' ) == 0 );
-
-            // Save data for cross-reference between Stripe Dashboard and WooCommerce
-            update_post_meta( $this->order->id, 'customer_id', $customer['customer_id'] );
-
-            return true;
-
-        } catch ( Exception $e ) {
-
-            // Stop page reload if we have errors to show
-            unset( WC()->session->reload_checkout );
-
-            $message = $this->get_stripe_error_message( $e );
-
-            wc_add_notice( __( 'Subscription Error:', 'stripe-for-woocommerce' ) . ' ' . $message, 'error' );
-
-            return false;
-        }
     }
 
     /**
@@ -184,12 +107,37 @@ class S4WC_Subscriptions_Gateway extends S4WC_Gateway {
      * @return      void
      */
     public function scheduled_subscription_payment( $amount_to_charge, $order, $product_id ) {
-        $charge = $this->process_subscription_payment( $order, $amount_to_charge );
+        $this->order = $order;
+
+        $charge = $this->process_subscription_payment( $amount_to_charge );
 
         if ( $charge ) {
             WC_Subscriptions_Manager::process_subscription_payments_on_order( $order );
         } else {
             WC_Subscriptions_Manager::process_subscription_payment_failure_on_order( $order, $product_id );
         }
+    }
+
+    /**
+     * Set up the charge that will be sent to Stripe
+     *
+     * @access      private
+     * @return      void
+     */
+    private function charge_set_up() {
+        // Add a customer or retrieve an existing one
+        $customer = $this->get_customer();
+
+        // Update default card
+        if ( $form_data['chosen_card'] !== 'new' ) {
+            $default_card = $this->stripe_customer_info['cards'][ (int)$form_data['chosen_card'] ]['id'];
+            S4WC_DB::update_customer( $this->order->user_id, array( 'default_card' => $default_card ) );
+        }
+
+        $initial_payment = WC_Subscriptions_Order::get_total_initial_payment( $this->order );
+
+        $charge = $this->process_subscription_payment( $initial_payment );
+
+        $this->transaction_id = $charge->id;
     }
 }
