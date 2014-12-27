@@ -6,7 +6,7 @@
  *
  * @class       S4WC_Gateway
  * @extends     WC_Payment_Gateway
- * @version     1.33
+ * @version     1.34
  * @package     WooCommerce/Classes/Payment
  * @author      Stephen Zuniga
  */
@@ -74,7 +74,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
     public function is_available() {
         global $s4wc;
 
-        if ( $this->enabled == 'no' ) {
+        if ( $this->enabled === 'no' ) {
             return false;
         }
 
@@ -84,7 +84,12 @@ class S4WC_Gateway extends WC_Payment_Gateway {
         }
 
         // Disable plugin if we don't use ssl
-        if ( ! is_ssl() && $this->settings['testmode'] == 'no' ) {
+        if ( ! is_ssl() && $this->settings['testmode'] === 'no' ) {
+            return false;
+        }
+
+        // Stripe will only process orders of at least 50 cents
+        if ( WC()->cart->total * 100 < 50 ) {
             return false;
         }
 
@@ -285,7 +290,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
         wp_enqueue_script( 'stripe', 'https://js.stripe.com/v2/', false, '2.0', true );
 
         // Plugin js
-        wp_enqueue_script( 's4wc_js', plugins_url( 'assets/js/s4wc.min.js', dirname( __FILE__ ) ), array( 'stripe', 'wc-credit-card-form' ), '1.33', true );
+        wp_enqueue_script( 's4wc_js', plugins_url( 'assets/js/s4wc.min.js', dirname( __FILE__ ) ), array( 'stripe', 'wc-credit-card-form' ), '1.34', true );
 
         // Add data that s4wc.js needs
         $s4wc_info = array(
@@ -535,6 +540,12 @@ class S4WC_Gateway extends WC_Payment_Gateway {
 
             // Save data for cross-reference between Stripe Dashboard and WooCommerce
             update_post_meta( $this->order->id, 'customer_id', $customer['customer_id'] );
+
+            // Save Stripe fee
+            if ( isset( $this->charge->balance_transaction ) && isset( $this->charge->balance_transaction->fee ) ) {
+                $stripe_fee = number_format( $this->charge->balance_transaction->fee / 100, 2, '.', '' );
+                update_post_meta( $this->order->id, 'Stripe Fee', $stripe_fee );
+            }
 
             return true;
 
@@ -811,6 +822,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
         $stripe_charge_data['amount']   = $this->form_data['amount']; // amount in cents
         $stripe_charge_data['currency'] = $this->form_data['currency'];
         $stripe_charge_data['capture']  = ( $this->settings['charge_type'] == 'capture' ) ? 'true' : 'false';
+        $stripe_charge_data['expand[]'] = 'balance_transaction';
 
         // Make sure we only create customers if a user is logged in
         if ( is_user_logged_in() && $this->settings['saved_cards'] === 'yes' ) {
@@ -839,6 +851,7 @@ class S4WC_Gateway extends WC_Payment_Gateway {
         // Create the charge on Stripe's servers - this will charge the user's card
         $charge = S4WC_API::create_charge( $stripe_charge_data );
 
+        $this->charge = $charge;
         $this->transaction_id = $charge->id;
     }
 }
