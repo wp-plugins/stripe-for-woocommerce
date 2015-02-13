@@ -3,7 +3,7 @@
  * Plugin Name: Stripe for WooCommerce
  * Plugin URI: https://wordpress.org/plugins/stripe-for-woocommerce
  * Description: Use Stripe for collecting credit card payments on WooCommerce.
- * Version: 1.35
+ * Version: 1.36
  * Author: Stephen Zuniga
  * Author URI: http://stephenzuniga.com
  *
@@ -123,13 +123,9 @@ class S4WC {
 
             // Messages from S4WC
             case 's4wc_problem_connecting':
-                $message = __( 'There was a problem connecting to the payment gateway.', 'stripe-for-woocommerce' );
-                break;
             case 's4wc_empty_response':
-                $message = __( 'Empty response.', 'stripe-for-woocommerce' );
-                break;
             case 's4wc_invalid_response':
-                $message = __( 'Invalid response.', 'stripe-for-woocommerce' );
+                $message = __( 'There was a problem connecting to the payment gateway.', 'stripe-for-woocommerce' );
                 break;
 
             // Generic failed order
